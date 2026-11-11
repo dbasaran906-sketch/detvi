@@ -1,0 +1,55 @@
+name: DETVI APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+
+      - name: Kaynağı hazırla
+        run: |
+          if [ -f DETVI.zip ]; then
+            mkdir -p _src
+            unzip -q -o DETVI.zip -d _src
+            echo "SRC=$GITHUB_WORKSPACE/_src/DETVI" >> "$GITHUB_ENV"
+          else
+            echo "SRC=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          fi
+
+      - name: SDK lisanslarını kabul et
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: APK derle
+        working-directory: ${{ env.SRC }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: APK'yı hazırla
+        run: cp "$SRC/app/build/outputs/apk/debug/app-debug.apk" "$GITHUB_WORKSPACE/DETVI.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DETVI-apk
+          path: DETVI.apk
+
+      - name: İndirilebilir sürüm oluştur
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: DETVI ${{ github.run_number }}
+          files: DETVI.apk
